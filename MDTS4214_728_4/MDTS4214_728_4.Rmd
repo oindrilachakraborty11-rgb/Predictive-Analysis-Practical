@@ -1,0 +1,228 @@
+---
+title: "MDTS4214_728_4"
+author: "Oindrila Chakraborty"
+date: "2026-02-19"
+output: word_document
+---
+
+## Problem set 3:-Multiple Linear Regression.
+
+### 5.Problem to demonstrate the utility of non-linear regression over linear regression Get the fgl data set from “MASS” library.
+
+(a) Considering the refractive index (RI) of “Vehicle Window glass” as the variable of interest and assuming linearity of regression, run multiple linear regression of RI on different metallic oxides. From the p value, report which metallic oxide best explains the refractive index.
+
+(b) Run a simple linear regression of RI on the best predictor chosen in (a).
+
+(c) Can you further improve the regression of the refractive index of “Vehicle Window glass” on the predictor chosen by you in part (a)? Give the new fitted model and compare its performance with the model in (b).
+
+```{r}
+library("MASS")
+data("fgl")
+head(fgl)
+veh=subset(fgl,type =="Veh")
+veh
+
+```
+
+```{r}
+fit0=lm(RI ~ Na + Mg + Al + Si + K + Ca + Ba + Fe,
+              data = veh)
+
+summary(fit0)
+```
+
+**a)Interprtation:-**
+
+A multiple linear regression model is fitted with RI as the response and metallic oxides as predictors.The p-values indicate the individual significance of each oxide after accounting for others.Among all predictors, Fe (Iron oxide) has the smallest p-value (p < 0.05).This indicates that Fe contributes most significantly to explaining variations in refractive index.
+Thus,Fe is the best predictor of RI for Vehicle Window glass.
+
+```{r}
+fit=lm(RI ~ Fe, data = veh)
+summary(fit)
+
+```
+
+**b)Interpretation:-**
+
+This model assumes a linear relationship between RI and Fe.The regression coefficient of Fe is statistically significant.The model explains a moderate proportion of variability in RI (as seen from R²).However, residual diagnostics suggest that the linearity assumption may be inadequate.
+
+
+```{r}
+fit1=lm(RI ~ Fe + I(Fe^2), data = veh)
+summary(fit1)
+anova(fit, fit1)
+
+```
+**Interpretation:-**
+A quadratic term (Fe²) is added to capture curvature in the relationship.The quadratic term is statistically significant.The non-linear model has:Higher R²,Lower residual standard error.ANOVA comparison confirms that the quadratic model fits significantly better than the linear model.
+
+**Conclusion:-**
+The simple linear regression of refractive index on iron oxide provides a basic fit.
+However, inclusion of a non-linear (quadratic) term significantly improves model performance.
+This clearly demonstrates the superiority of non-linear regression over linear regression in modeling the refractive index of Vehicle Window glass.
+
+
+## Problem Set 4:-Some Potential Problems in Multiple Linear Regression.
+
+### 1.Problem to demonstrate multicollinearity
+
+*Consider the Credit data in the ISLR library. Choose balance as the response and Age, Limit and Rating as the predictors.*
+
+(a) Make a scatter plot of (i) Age versus Limit and (ii) Rating Versus Limit.Comment on the scatter plot.
+
+(b) Run three separate regressions: (i) Balance on Age and Limit (ii) Balance on Age, Rating and Limit (iii) Balance on Rating and Limit. Present all the regression output in a single table using stargazer.What is the marked difference that you can observe from the output?
+
+(c) Calculate the variance inflation factor (VIF) and comment on multicollinearity.
+
+```{r}
+library(ISLR)
+library(car)
+library(stargazer)
+
+```
+
+```{r}
+data(Credit)
+plot(Credit$Age, Credit$Limit,
+     xlab = "Age",
+     ylab = "Credit Limit",
+     main = "Age vs Limit")
+plot(Credit$Rating, Credit$Limit,
+     xlab = "Rating",
+     ylab = "Credit Limit",
+     main = "Rating vs Limit")
+
+```
+
+**(a) Scatter Plots**
+
+**Age vs Limit Interpretation:**The scatter plot between Age and Credit Limit does not show a strong linear relationship. The points are widely scattered, indicating that Age alone is not a strong predictor of Credit Limit.
+
+**Rating vs Limit Interpretation:**The scatter plot between Rating and Credit Limit shows a strong positive linear relationship. As Rating increases, the Credit Limit also increases. This indicates that these two predictors are highly correlated, suggesting the possibility of multicollinearity.
+
+
+```{r}
+m1=lm(Balance ~ Age + Limit, data = Credit)
+m2=lm(Balance ~ Age + Rating + Limit, data = Credit)
+m3=lm(Balance ~ Rating + Limit, data = Credit)
+stargazer(m1, m2, m3,
+          type = "text",
+          title = "Regression Results for Credit Data")
+
+```
+
+**(b) Regression Models**
+
+**Model 1: Balance ~ Age + Limit Interpretation:** In this model, both Age and Limit are used to explain Balance. Credit Limit is statistically significant, indicating that higher limits are associated with higher balances. Age has a comparatively weaker effect.
+
+**Model 2: Balance ~ Age + Rating + Limit InterPretation:** When Rating is added to the model, the coefficient of Limit becomes statistically insignificant. This happens because Rating and Limit are highly correlated, leading to multicollinearity. As a result, the individual effect of each predictor becomes difficult to interpret.
+
+**Model 3: Balance ~ Rating + Limit Interpretation:** In this model, Rating remains statistically significant while Limit may lose significance. This further confirms that both variables contain similar information and are strongly correlated.
+
+Thus,The marked difference across the regression outputs is the instability of coefficients and p-values for Rating and Limit when they appear together. This is a clear symptom of multicollinearity.
+
+
+
+```{r}
+vif(m2)
+
+```
+**(c) Variance Inflation Factor (VIF) Interpretation:** Variance Inflation Factor (VIF) measures how much the variance of a regression coefficient is inflated due to multicollinearity. A VIF value greater than 5 (or 10) indicates serious multicollinearity. In this model, Rating and Limit show high VIF values, confirming the presence of multicollinearity.
+
+### 2.Problem to demonstrate the detection of outlier, leverage and influential points.
+
+*Attach “Boston” data from MASS library in R.*Select median value of owner occupied homes, as the response and per capita crime rate, nitrogen oxides concentration, proportion of blacks and percentage of lower status of the population as predictors. The objective is to fit a multiple linear regression model ofthe response on the predictors. With reference to this problem, detect outliers,leverage points and influential points if any.
+
+
+```{r}
+library(MASS)
+data(Boston)
+
+```
+
+
+```{r}
+model=lm(medv ~ crim + nox + black + lstat, data = Boston)
+summary(model)
+
+```
+
+**Model Description Explanation:** A multiple linear regression model is fitted with median house value (medv) as the response variable and crime rate (crim), nitrogen oxides concentration (nox), proportion of blacks (black), and lower status population percentage (lstat) as predictors.
+
+```{r}
+stud_res=rstudent(model)
+outliers=which(abs(stud_res) > 2)
+outliers
+
+```
+**Detection of Outliers**
+
+Method Used-Studentized residuals Explanation: Studentized residuals measure how far an observation deviates from the fitted regression line while accounting for variance. Observations with absolute studentized residuals greater than 2 are considered potential outliers. The identified observations deviate significantly from the model.
+
+
+```{r}
+plot(fitted(model), resid(model),
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residuals vs Fitted")
+abline(h = 0, col = "red")
+
+```
+
+The residuals versus fitted values plot is used to check linearity and constant variance. A random scatter of points around zero indicates that the linear regression assumptions are reasonably satisfied.
+
+```{r}
+qqnorm(resid(model))
+qqline(resid(model), col = "red")
+
+```
+The Q–Q plot is used to check the normality of residuals. If the residuals follow a straight line, the normality assumption of the regression model is satisfied. Deviations at the ends indicate possible outliers.
+
+```{r}
+std_res=rstudent(model)
+plot(std_res,
+     ylab = "Studentized Residuals",
+     main = "Studentized Residuals Plot")
+abline(h = c(-2, 2), col = "red")
+
+```
+
+Studentized residuals help identify outliers by standardizing residuals. Observations with absolute studentized residuals greater than 2 are considered potential outliers.
+
+
+```{r}
+which(abs(std_res) > 2)
+
+```
+
+The observations identified numerically using studentized residuals match those observed visually in the residual plots. This confirms consistency between graphical and numerical methods for outlier detection.
+
+```{r}
+hat_values=hatvalues(model)
+leverage_limit=2 * (length(coef(model)) / nrow(Boston))
+leverage_points=which(hat_values > leverage_limit)
+leverage_points
+
+```
+
+**Detection of Leverage Points**
+Method Used-Hat values Explanation:Leverage points are observations with extreme predictor values. Hat values measure the influence of an observation’s predictor values on the fitted model. Observations with hat values greater than the cutoff value are considered high-leverage points.
+
+
+```{r}
+cooks_d=cooks.distance(model)
+influential_points=which(cooks_d > (4 / nrow(Boston)))
+influential_points
+
+```
+
+**Detection of Influential Points**
+Method Used-Cook’s Distance Explanation:Cook’s Distance measures how much the regression coefficients change when an observation is removed. Observations with Cook’s Distance greater than 4/n are considered influential, meaning they have a strong impact on the regression results.
+
+**Conclusion:-**
+The diagnostic analysis shows that while most observations satisfy regression assumptions, a few observations exhibit large studentized residuals, high leverage, and high Cook’s Distance. These points may influence the fitted regression model and should be examined further.
+
+
+
+
+
