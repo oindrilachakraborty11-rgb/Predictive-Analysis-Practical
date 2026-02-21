@@ -1,0 +1,259 @@
+---
+title: "MDTS4214_728_5"
+author: "Oindrila Chakraborty"
+date: "2026-02-20"
+output: word_document
+---
+
+## PREDICTIVE ANALYTICS_Problem Set 5: K nearest neighbours regression
+
+## 1 Problem to demonstrate the utility of K nearest neighbour regression over least squares regression
+
+**Consider a setting with n = 1000 observations.** Generate (i) x1i from N(0, 2) and x2i from Poisson(λ = 1.5).
+(ii) εi from N(0, 1).
+(iii) yi = −2 + 1.4x1i − 2.6x2i + εi.
+
+Split the data into train and test sets. Keep the first 800 observations as training data and the remaining as test data. Work out the following:
+1. Fit a multiple linear regression equation of y on x1 and x2. Calculate test
+MSE.
+2. Fit a KNN model with k = 1, 2, 5, 9, 15. Calculate test MSE for each
+choice of k.
+Suppose the data in Step (iii) is generated as :
+yi = 1/(−2 + 1.4x1i − 2.6x2i + 2.9x21i) + 3.1 sin(x2i) − 1.5x1ix22i + εi.
+Work out the problems in (1) and (2). Compare and comment.
+
+```{r}
+set.seed(123)
+x1i=rnorm(1000,0,2)
+x2i=rpois(1000,1.5)
+ei=rnorm(1000,0,1)
+yi= -2+1.4*x1i-2.6*x2i+ei
+df=data.frame(yi,x1i,x2i,ei)
+dim(df)
+train=df[c(1:800),]
+test=df[c(801:1000),]
+head(train)
+head(test)
+#MLR model
+model=lm(yi~x1i+x2i,data=train)
+pred=predict(model,newdata=test)
+test_mse=mean((test$yi-pred)^2)
+test_mse
+```
+
+
+```{r}
+#install.packages("caret")
+library(caret)
+#KNN Regression
+knn1=knnreg(yi~x1i+x2i,data=train,k=1)
+knn1
+Y_knn_1=predict(knn1,test)
+head(Y_knn_1)
+mse_knn_1=mean((test$yi-Y_knn_1)^2)
+mse_knn_1
+
+knn2=knnreg(yi~x1i+x2i,data=train,k=2)
+knn2
+Y_knn_2=predict(knn2,test)
+head(Y_knn_2)
+mse_knn_2=mean((test$yi-Y_knn_2)^2)
+mse_knn_2
+
+knn3=knnreg(yi~x1i+x2i,data=train,k=5)
+knn3
+Y_knn_3=predict(knn3,test)
+head(Y_knn_3)
+mse_knn_3=mean((test$yi-Y_knn_3)^2)
+mse_knn_3
+
+knn4=knnreg(yi~x1i+x2i,data=train,k=9)
+knn4
+Y_knn_4=predict(knn4,test)
+head(Y_knn_4)
+mse_knn_4=mean((test$yi-Y_knn_4)^2)
+mse_knn_4
+
+knn5=knnreg(yi~x1i+x2i,data=train,k=15)
+knn5
+Y_knn_5=predict(knn5,test)
+head(Y_knn_5)
+mse_knn_5=mean((test$yi-Y_knn_5)^2)
+mse_knn_5
+```
+
+**Comments**
+
+1. The Linear Scenario
+Winner: Linear Regression (OLS).
+Reasoning: Since the true model is $y= \beta_0 + \beta_1x_1 + \beta_2x_2 + \epsilon$, OLS is the Best Linear Unbiased Estimator(BLUE). KNN will struggle because it is "local." It uses nearby points to estimate the value, which introduces noise compared to the global approach of OLS that perfectly captures the underlying slope.For MLR the MSE is 0.9989 but for KNN Regression all MSE are above 1.So lm model is more suitable for this model.
+
+
+```{r}
+#Non-Linear response
+library(caret) # Required for knnreg
+
+set.seed(123)
+x1i=rnorm(1000, 0, 2)
+x2i=rpois(1000, 1.5)
+ei=rnorm(1000, 0, 1)
+y_nonlin=1/(-2 + 1.4*x1i - 2.6*x2i + 2.9*x1i^2) + 3.1*sin(x2i) - 1.5*x1i*x2i^2 + ei
+data_nonlin=data.frame(yi2 = y_nonlin, x1i = x1i, x2i = x2i)
+train_nl=data_nonlin[1:800, ]
+test_nl=data_nonlin[801:1000, ]
+lm_mod_nl=lm(yi2 ~ x1i + x2i, data = train_nl)
+mse_lm_nl=mean((test_nl$yi2 - predict(lm_mod_nl, test_nl))^2)
+ks=c(1, 2, 5, 9, 15)
+knn_mses=numeric(length(ks))
+
+for(i in 1:length(ks)) {
+  knn_fit <- knnreg(yi2 ~ x1i + x2i, data = train_nl, k = ks[i])
+  predictions <- predict(knn_fit, test_nl)
+  knn_mses[i] <- mean((test_nl$yi2 - predictions)^2)
+}
+
+results <- data.frame(K = ks, MSE = knn_mses)
+print(paste("Linear Regression MSE:", round(mse_lm_nl, 4)))
+print(results)
+```
+**The Non-Linear Scenario**
+
+Winner: KNN (likely at a moderate $k$ like 5 or 9).
+Reasoning: The complex function involving $sin(x)$ and $x^2$ violates the assumptions of linear regression. OLS has high bias here because it tries to fit a straight plane to a curved surface. KNN is flexible; it doesn't care about the shape of the function, only about the proximity of data points, allowing it to "bend" to the non-linear patterns.
+
+The Role of $k$Low $k$ (e.g., $k=1$): Low bias but extremely high variance. The model captures the noise ($\epsilon$) in the training set, leading to poor test MSE (Overfitting).High $k$ (e.g., $k=15$): Low variance but higher bias. The model"oversmooths" the data, potentially missing local trends.
+
+
+## PREDICTIVE ANALYTICS_Problem Set 3: Multiple Linear Regression
+
+
+### 3 Problem to demonstrate the role of qualitative (ordinal) predictors in addition to quantitative predictors in multiple linear regression.
+
+**Consider “diamonds” data set in R.It is in the ggplot2 package. Make a list of all the ordinal categorical variables. Identify the response.**
+
+(a) Run a linear regression of the response on the quality of cut. Write the fitted regression model.
+(b) Test whether the expected price of diamond with premium cut is significantly different from that of the ideal cut.
+(c) What is the expected price of a diamond of ideal cut?
+(d) Modify the regression model in (a) by incorporating the predictor “table”.Write the fitted regression model.
+(e) Test for the significance of “table” in predicting the price of diamond.
+(f) Find the average estimated price of a diamond with an average table value
+and which is of fair cut.
+
+
+```{r}
+install.packages("ggplot2")
+library(ggplot2)
+library(stargazer)
+data(diamonds)
+head(diamonds)
+dim(diamonds)
+str(diamonds)
+variable_info=data.frame(
+  Variable = names(diamonds),
+  Type = c("Quantitative", "Qualitative", "Qualitative", "Qualitative","Quantitative","Quantitative","Quantitative","Quantitative","Quantitative","Quantitative"),
+  Scale = c("Continuous", "Ordinal(non-numeric)","Ordinal(non-numeric)","Ordinal(non-numeric)", "Continuous","Continuous","Continuous","Continuous","Continuous","Continuous"))
+print(variable_info)
+```
+
+
+```{r}
+#a)
+diamonds$cut=factor(diamonds$cut,ordered=FALSE)
+diamonds$cut=relevel(diamonds$cut,ref="Ideal")
+fit111=lm(price~cut,data=diamonds)
+summary(fit111)
+coef111=coef(fit111)
+coef111
+
+#contrasts(diamonds$cut)=contr.sdif(5)
+ord_mod=lm(price~cut,data=diamonds)
+summary(ord_mod)
+#aggregate(ord_mod)
+aggregate(price ~ cut, data = diamonds, mean)
+
+head(diamonds$cut)
+lvl=as.numeric(diamonds$cut)
+code_fun=function(x){
+  if(x-5==0){
+    return(c(0,0,0,0))
+  }else if(x-5==-1){
+    return(c(1,0,0,0))
+  }else if(x-5==-2){
+    return(c(1,1,0,0))
+  }else if(x-5==-3){
+    return(c(1,1,1,0))
+  }else{
+     return(c(1,1,1,1))
+   }
+}
+
+coded_pred=t(sapply(lvl,code_fun))
+#str(coded_pred)
+colnames(coded_pred)=c("Premium","Very_Good","Good","Fair")
+diamonds=cbind(diamonds,coded_pred)
+ord_mod=lm(price~Premium+Very_Good+Good+Fair,data=diamonds)
+summary(ord_mod)
+
+#model:base=Ideal(0,0,0,0)"estimate:3457.54
+#Premium(1,0,0,0) estimate:3457.54+1126.72=4584.26
+aggregate(diamonds$price,list(diamonds$cut),mean)
+
+#lm(price~relevel(factor(as.character(cut)),ref="Ideal"),data=diamonds)
+##fit333=lm(price~clarity,data=diamonds)
+#summary(fit333)
+
+#fit222=lm(price~color,data=diamonds)
+#summary(fit222)
+
+#stargazer(fit111,fit222,fit333,type="text",out="f21.txt")
+
+#b) Test whether the expected price of diamond with premium cut is significantly different from that of the ideal cut.
+#install.packages("car")
+#library(car)
+#linearHypothesis(fit111, "cutPremium = cutIdeal")
+```
+**Fitted Regression Model (a):**
+The model is expressed using dummy variables where "Ideal" is the reference point (intercept):$$\widehat{\text{Price}} = \hat{\beta}_0 + \hat{\beta}_1\text{cutPremium} + \hat{\beta}_2\text{cutVery Good} + \hat{\beta}_3\text{cutGood} + \hat{\beta}_4\text{cutFair}$$$\hat{\beta}_0$ is the intercept (Price for Ideal).$\hat{\beta}_{1 \dots 4}$ represent the difference in price between that cut and the Ideal cut.
+
+**(b) Test:** 
+Premium Cut vs. Ideal CutLook at the summary(fit111) output for the row cutPremium.The Null Hypothesis ($H_0$): There is no difference in price between Premium and Ideal ($\beta_1 = 0$).
+Result: Check the $p$-value ($Pr(>|t|)$). If $p < 0.05$, the price of a Premium cut is significantly different from an Ideal cut. Interestingly, in this dataset, Premium diamonds are often more expensive on average because they tend to be larger (carat), even though the cut quality is lower than Ideal.
+
+(c) Expected Price of Ideal CutThe expected price for the reference category is simply the Intercept value from fit111. Based on the data, this is approximately $3,457.50.
+
+(d) Incorporating the "Table" PredictorNow we add a quantitative variable (table) to the categorical model.
+```{r}
+fit6=lm(price ~ cut + table, data = diamonds)
+summary(fit6)
+```
+Fitted Regression Model (d):
+$$\widehat{\text{Price}} = \hat{\beta}_0 + \hat{\beta}_1\text{cutPrem} + \hat{\beta}_2\text{cutV.Good} + \hat{\beta}_3\text{cutGood} + \hat{\beta}_4\text{cutFair} + \hat{\beta}_5\text{table}$$
+
+(e) Significance of "Table"In summary(fit6), check the row for table.If the $p$-value is less than $0.05$, the table width is a significant predictor of price when holding the cut quality constant.
+
+
+```{r}
+avg_table <- mean(diamonds$table, na.rm = TRUE)
+new_data <- data.frame(cut = "Fair", table = avg_table)
+predicted_price <- predict(fit6, newdata = new_data)
+cat("The average estimated price for a Fair cut diamond with a table of", 
+    round(avg_table, 2), "is: $", round(predicted_price, 2))
+```
+
+Explanations of the LogicCategorical Encoding: 
+
+When R sees a factor like cut, it creates $k-1$ "dummy" columns. If a diamond is "Fair", the Fair column is 1 and all others are 0.Intercept Interpretation: The Intercept is the expected value when all dummy variables are 0 (the reference group) and the quantitative variable (table) is 0.Additive Effect: By adding table to the model, we are essentially creating a model with several parallel lines (or planes)—one for each cut—where the slope of table is assumed to be the same for all cuts.
+
+The analysis of the diamonds dataset demonstrates how qualitative (ordinal) variables function as "intercept shifters" in a regression model. By converting the cut quality into numerical dummy variables, we move beyond simple correlations to a model that quantifies the specific "premium" or "discount" associated with each level of craftsmanship.
+
+Findings:
+
+The Baseline Effect: Using "Ideal" as the reference category, we found that the Intercept ($3457.54$) represents the expected price for that specific group. Every other coefficient tells us how much the price deviates from that "Ideal" baseline.
+
+The Power of Controls: 
+
+By incorporating the "table" variable (a quantitative predictor), the model becomes more robust. It allows us to isolate the effect of a diamond's physical dimensions from its categorical quality. We concluded that the table percentage is a significant predictor, meaning that even within the same cut category, the specific proportions of the stone significantly impact its market value.
+
+Predictive Versatility: 
+
+This regression framework allows for precise estimation. For instance, we can calculate that a Fair cut diamond, even when adjusted for an average table value, carries a distinct price point that differs significantly from its higher-graded counterparts.Essentially, this problem illustrates that in predictive analytics, the "best" model isn't just about the numbers—it's about how effectively you encode human-defined categories (like quality and beauty) into a mathematical structure that R can interpret.
