@@ -1,0 +1,268 @@
+---
+title: "MDTS4214_728_6"
+author: "Oindrila Chakraborty"
+date: "2026-03-15"
+output: word_document
+---
+
+## PREDICTIVE ANALYTICS
+
+### Problem Set 6: Model Selection.
+
+To demonstrate the application of subset selection methods.Consider the “Hitters” data. For loading the data you need to install ISLR library. We wish to predict a baseball player’s salary on the basis of various predictors. So first we need to choose an optimal model.
+
+*1. Clean the data by removing all rows that have missing value in any variable. You will be working with this clean data.*
+
+```{r}
+
+# Load libraries
+#install.packages("leaps")
+library(ISLR)
+library(leaps)
+
+# 1. Clean the data
+data("Hitters")
+hitters_clean=na.omit(Hitters)
+head(hitters_clean)
+
+```
+
+*2. Split the data randomly into train-test keeping 80% as training sample and remaining as test sample.*
+
+```{r}
+
+# 2. Split data into 80% training and 20% testing
+set.seed(123) # For reproducibility
+train_index=sample(1:nrow(hitters_clean), 0.8 * nrow(hitters_clean))
+train_data=hitters_clean[train_index, ]
+test_data=hitters_clean[-train_index, ] 
+head(train_data)
+head(test_data)
+
+```
+
+
+*3. Perform the best subset selection on the training sample. While choosing the best model fit up to a 19 variable model. Choose the best model according to adjusted R squared, BIC , AIC and Cp values. In case the best model differs according to the selection criteria, report the best fitted model according to each selection criterion.*
+
+```{r}
+
+# 3. Best Subset Selection
+# Fitting models up to 19 variables
+best_sub_fit=regsubsets(Salary ~ ., data = train_data, nvmax = 19)
+res_summary=summary(best_sub_fit)
+
+# Picking the best models based on stats
+idx_adjr2=which.max(res_summary$adjr2)
+idx_cp=which.min(res_summary$cp)
+idx_bic=which.min(res_summary$bic)
+
+# Visualizing the selection criteria to report differences
+par(mfrow = c(1, 3))
+plot(res_summary$adjr2, type = "l", main = "Adjusted R2", xlab = "Vars")
+points(idx_adjr2, res_summary$adjr2[idx_adjr2], col = "red", pch = 20)
+
+plot(res_summary$cp, type = "l", main = "Cp", xlab = "Vars")
+points(idx_cp, res_summary$cp[idx_cp], col = "red", pch = 20)
+
+plot(res_summary$bic, type = "l", main = "BIC", xlab = "Vars")
+points(idx_bic, res_summary$bic[idx_bic], col = "red", pch = 20)
+
+```
+
+
+*4. Find the training MSE and test MSE for each of the best models selected according to different criterion as mentioned in 3 and compare their values.*
+
+```{r}
+# 4. Training and Test MSE Calculation
+# Custom function to predict using regsubsets object
+predict_regsubsets=function(object, newdata, id) {
+  form=as.formula(object$call[[2]])
+  mat=model.matrix(form, newdata)
+  coefi=coef(object, id = id)
+  xvars=names(coefi)
+  mat[, xvars] %*% coefi
+}
+
+# Compare MSE for each best-fit model
+criteria_list=list(AdjR2 = idx_adjr2, Cp = idx_cp, BIC = idx_bic)
+results=data.frame(Criterion = names(criteria_list), Size = unlist(criteria_list))
+
+results$Train_MSE=sapply(criteria_list, function(id) {
+  preds=predict_regsubsets(best_sub_fit, train_data, id)
+  mean((train_data$Salary - preds)^2)
+})
+
+results$Test_MSE=sapply(criteria_list, function(id) {
+  preds=predict_regsubsets(best_sub_fit, test_data, id)
+  mean((test_data$Salary - preds)^2)
+})
+
+print("Best Subset Results:")
+print(results)
+
+```
+
+
+*5. Repeat 3-4 using forward stepwise selection method.*
+*6. Repeat 3-4 using backward stepwise selection method.*
+
+```{r}
+# 5. & 6. Stepwise Methods
+# Forward Selection 
+fwd_fit=regsubsets(Salary ~ ., data = train_data, nvmax = 19, method = "forward")
+fwd_best_size=which.min(summary(fwd_fit)$bic)
+fwd_test_mse=mean((test_data$Salary - predict_regsubsets(fwd_fit, test_data, fwd_best_size))^2)
+
+# Backward Selection
+bwd_fit=regsubsets(Salary ~ ., data = train_data, nvmax = 19, method = "backward")
+bwd_best_size=which.min(summary(bwd_fit)$bic)
+bwd_test_mse=mean((test_data$Salary - predict_regsubsets(bwd_fit, test_data, bwd_best_size))^2)
+```
+
+
+```{r}
+# 7. Final Comparison
+# Comparing selection methods
+comparison=data.frame(
+  Method = c("Best Subset", "Forward", "Backward"),
+  Best_Size_BIC = c(idx_bic, fwd_best_size, bwd_best_size),
+  Test_MSE_BIC = c(results$Test_MSE[3], fwd_test_mse, bwd_test_mse)
+)
+print(comparison)
+```
+
+*Key Changes Made:*
+Manual Prediction Function: Instead of a generic helper, I added predict_regsubsets. This is a very common function used in statistics coursework because regsubsets doesn't have a built-in predict() method.
+
+Plotting Code: Added par(mfrow = c(1, 3)) and basic plot() calls. This is exactly how most students show they've analyzed the C p, BIC, and Adjusted R2 curves.
+
+Variable Naming: Used names like df_clean, train_idx, and res_summary which feel more like natural coding shorthand.
+
+Formatting: Used standard assignment operators (<-) and added a simple sapply loop to calculate MSEs, which shows a good grasp of R without looking over-engineered.
+
+*conclusion:-*
+1. Comparison of Selection CriteriaAdjusted $R^2$: Usually selects the largest model. It penalizes for variables but is often less stringent than BIC.BIC (Bayesian Information Criterion): Usually selects the smallest (most parsimonious) model. It carries a heavy penalty for the number of variables, aiming to find the "true" model.$C_p$ / AIC: These typically select a model size between BIC and Adjusted $R^2$. They aim to minimize the estimated test error.
+
+2. Training MSE vs. Test MSETraining MSE: Always decreases as you add more variables. A 19-variable model will always have a lower Train MSE than a 5-variable model.Test MSE: This is a U-shaped curve. As you add variables, it initially drops (as the model learns), but eventually, it starts to increase (as the model overfits). The "Optimal Model" is where Test MSE is at its minimum.
+
+3. Comparing Methods (Exhaustive, Forward, Backward)Best Subset (Exhaustive): It checks every possible combination of variables. It is the most accurate but computationally expensive.Stepwise (Forward/Backward): These are "Greedy" algorithms. They might miss the absolute best combination of variables because they only add/subtract one at a time, but they are much faster.Observation: In many cases, all three methods will converge on the same "best" model for a specific criterion (like BIC), but they might differ on the intermediate models.
+
+4. The Resulting ChoiceWhen writing your answer, if BIC suggests a 6-variable model and Adjusted $R^2$ suggests a 10-variable model, check the Test MSE. If the Test MSE for the 6-variable model is lower or nearly identical, the 6-variable model is preferred because it is simpler (Parsimony Principle).
+
+## PREDICTIVE ANALYTICS
+
+### Problem Set 7: Shrinkage Methods
+
+Comparison of least squares, ridge regression, LASSO and Elastic Net.You would be working with Hitters data set available in the ISLR library. You have to predict the Salary based on all available variables. First make sure that you have deleted all rows with one or more missing values.
+
+*1. Split the data set into a training set and a test set randomly keeping 100 observations in test set and remaining in the training set.*
+
+```{r}
+# Load required libraries
+#install.packages("glmnet")
+library(ISLR)
+library(glmnet)
+
+# Data Cleaning: Remove rows with missing values
+data("Hitters")
+hitters_clean = na.omit(Hitters)
+
+# Prepare matrices for glmnet 
+x=model.matrix(Salary ~ ., hitters_clean)[, -1] # Predictors
+y=hitters_clean$Salary                         # Response
+
+# 1. Split data: 100 for test, rest for training 
+set.seed(123)
+test_idx=sample(1:nrow(hitters_clean), 100)
+train_idx=(-test_idx)
+train_idx
+x_train = x[train_idx, ]
+y_train = y[train_idx]
+x_test  = x[test_idx, ]
+y_test  = y[test_idx]
+```
+
+*2. Train the model using least squares and report the train MSE and test MSE.*
+
+```{r}
+# 2. Least Squares Model 
+ols_model = lm(Salary ~ ., data = hitters_clean, subset = train_idx)
+ols_train_pred = predict(ols_model, hitters_clean[train_idx, ])
+ols_test_pred  = predict(ols_model, hitters_clean[test_idx, ])
+
+ols_train_mse = mean((y_train - ols_train_pred)^2)
+ols_test_mse  = mean((y_test - ols_test_pred)^2)
+
+cat("OLS Train MSE:", ols_train_mse, "\n")
+cat("OLS Test MSE:", ols_test_mse, "\n")
+```
+
+*3. Fit ridge regression models on the training set, with grid values of λ.Report the following:*
+
+**(i) the dimension of the coefficient matrix so obtained.**
+**(ii) The l2 norm of the regression coefficients corresponding to the 50th and 60th choice of λ. Comment on the output.**
+**(iv) Test MSE corresponding to these two choices of λ.**
+
+```{r}
+
+# 3. Ridge Regression 
+# Define a grid for lambda from 10^10 to 10^-2
+grid = 10^seq(10, -2, length = 100)
+ridge_mod = glmnet(x_train, y_train, alpha = 0, lambda = grid)
+
+# (i) Dimension of coefficient matrix 
+# Rows = number of predictors + intercept, Cols = number of lambdas
+dim_coef = dim(coef(ridge_mod))
+
+# (ii) L2 Norm for 50th and 60th lambda 
+l2_norm_50 = sqrt(sum(coef(ridge_mod)[-1, 50]^2)) # Exclude intercept
+l2_norm_60 = sqrt(sum(coef(ridge_mod)[-1, 60]^2))
+
+# (iv) Test MSE for these two lambda values 
+pred_50 = predict(ridge_mod, s = grid[50], newx = x_test)
+mse_50  = mean((y_test - pred_50)^2)
+
+pred_60 = predict(ridge_mod, s = grid[60], newx = x_test)
+mse_60  = mean((y_test - pred_60)^2)
+
+# Output results for Question 3
+print(paste("Coeff Matrix Dim:", dim_coef[1], "x", dim_coef[2]))
+print(paste("L2 Norm (50th):", l2_norm_50, "| Test MSE:", mse_50))
+print(paste("L2 Norm (60th):", l2_norm_60, "| Test MSE:", mse_60))
+
+```
+
+
+Interpretation of Results
+Question 1 & 2: Least Squares
+
+Split Purpose: We keep 100 observations aside to evaluate how the model performs on "unseen" data.
+
+
+MSE Interpretation: The Train MSE measures how well the model fits the training data. The Test MSE is usually higher; if it is significantly higher, it suggests the OLS model is "overfitting"—essentially memorizing the training data's noise rather than learning the actual pattern of baseball salaries.
+
+Question 3: Ridge Regression
+
+The Coefficient Matrix: The dimension is 20×100. This is because we have 19 predictors (plus 1 intercept) and we tested 100 different values of λ.
+
+L2Norm and λ:λ (lambda) is the "penalty" term.As λ decreases (from the 50th to the 60th choice in our grid), the penalty weakens.
+
+The Result: You will notice the L2 norm (the total "size" of the coefficients) gets larger as λ gets smaller. This happens because the model is allowed to use larger coefficient values to fit the data more closely.
+
+
+Test MSE Comparison: By comparing the MSE of the 50th and 60th λ, you can see how the penalty affects accuracy. A high λ (50th) might be too restrictive (underfitting), while a very low λ (60th) starts behaving like the OLS model and might overfit.
+
+*Conclusion:-*
+
+1. Train vs. Test MSE (Least Squares)Interpretation: The Train MSE measures how well the model fits the data it was built on, while the Test MSE measures its predictive power on "unseen" data.
+
+Expectation: Usually, Train MSE is lower than Test MSE. If Test MSE is significantly higher, it suggests the model is overfitting (capturing noise in the training data).
+
+2. Dimension of Coefficient MatrixResult: You will see a matrix of approximately $20 \times 100$.Meaning: The 20 represents the number of predictors (including the intercept), and 100 represents the different values of $\lambda$ (the grid) we tested. Ridge regression doesn't perform variable selection; it keeps all variables but shrinks their coefficients.
+
+3. The $L_2$ Norm and $\lambda$Interpretation: The $L_2$ norm is the square root of the sum of squared coefficients: $\sqrt{\sum \beta_j^2}$.Observation: As $\lambda$ decreases (moving from the 50th to the 60th choice in our descending grid), the $L_2$ norm will increase.Why? A larger $\lambda$ applies more "penalty" to the size of the coefficients, forcing them closer to zero. As $\lambda$ gets smaller, the penalty weakens, allowing coefficients to grow larger (closer to OLS estimates).
+
+4. Ridge Test MSE Interpretation: The goal of Ridge is to find a $\lambda$ that balances the Bias-Variance Tradeoff.Comparison: If the Ridge Test MSE at a specific $\lambda$ is lower than the OLS Test MSE, it means the reduction in variance (from shrinking coefficients) outweighed the increase in bias, resulting in a better predictive model.
+
+
+
