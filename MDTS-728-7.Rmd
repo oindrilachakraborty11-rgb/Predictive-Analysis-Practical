@@ -1,0 +1,132 @@
+---
+title: "MDTS-728-7"
+author: "Oindrila Chakraborty"
+date: "2026-03-25"
+output: word_document
+---
+
+## PREDICTIVE ANALYTICS
+
+### Problem Set 7: Shrinkage Methods
+
+*Comparison of least squares, ridge regression, LASSO and Elastic Net.You would be working with Hitters data set available in the ISLR library. You have to predict the Salary based on all available variables. First make sure that you have deleted all rows with one or more missing values.*
+
+**1. Split the data set into a training set and a test set randomly keeping 100 observations in test set and remaining in the training set.**
+
+**2. Train the model using least squares and report the train MSE and test MSE.**
+
+**3. Fit ridge regression models on the training set, with grid values of λ. Report the following:**
+
+(i) the dimension of the coefficient matrix so obtained.
+
+(ii) The l2 norm of the regression coefficients corresponding to the 50th
+and 60th choice of λ. Comment on the output.
+
+(iv) Test MSE corresponding to these two choices of λ.
+
+**4. Make a line plot (for all the predictors) of the standardized coefficients against the grid value of λ chosen by you. Interpret the graph.**
+
+```{r}
+# 1. Load necessary libraries
+library(glmnet)
+
+# 2. Prepare the data (using the 'Hitters' dataset as an example)
+library(ISLR)
+Hitters <- na.omit(Hitters)
+x <- model.matrix(Salary ~ ., Hitters)[, -1] # Predictors
+y <- Hitters$Salary                           # Response
+
+# 3. Define a grid of lambda values
+grid <- 10^seq(10, -2, length = 100)
+
+# 4. Fit the model (alpha = 0 for Ridge, alpha = 1 for Lasso)
+# We use alpha = 0 (Ridge) to see all predictors simultaneously
+ridge_mod <- glmnet(x, y, alpha = 0, lambda = grid, standardize = TRUE)
+
+# 5. Plot the standardized coefficients against log(Lambda)
+plot(ridge_mod, xvar = "lambda", label = TRUE)
+legend("topright", lwd = 1, col = 1:6, legend = colnames(x), cex = 0.6)
+```
+
+**5. How would the graph in (4) change if instead of λ you plot on the x axis the ratio of l2 norm of the ridge regression coefficient to the least square regression coefficient.**
+
+**6. Run the Ridge regression on training data by choosing λ by cross-validation.Find the test MSE for the optimal choice of λ obtained using cross vali-dation.**
+
+**7. Fit a LASSO model on the training set, with λ chosen by cross-validation.Report the test MSE, along with the number of non-zero coefficient estimates.**
+
+**8. Fit an Elastic Net model on the training set, with λ1 and λ2 chosen by cross-validation. Report the test MSE. Also report the predictors with non-zero coefficients.**
+
+```{r}
+library(glmnet)
+library(ISLR)
+
+# Data Cleaning
+Hitters <- na.omit(Hitters)
+x <- model.matrix(Salary ~ ., Hitters)[, -1]
+y <- Hitters$Salary
+
+# Training/Test Split (50/50)
+set.seed(1)
+train <- sample(1:nrow(x), nrow(x) / 2)
+test <- (-train)
+y.test <- y[test]
+
+# --- 6. RIDGE REGRESSION ---
+cv.ridge <- cv.glmnet(x[train, ], y[train], alpha = 0)
+bestlam_ridge <- cv.ridge$lambda.min
+ridge.pred <- predict(cv.ridge, s = bestlam_ridge, newx = x[test, ])
+mse_ridge <- mean((ridge.pred - y.test)^2)
+
+# --- 7. LASSO REGRESSION ---
+cv.lasso <- cv.glmnet(x[train, ], y[train], alpha = 1)
+bestlam_lasso <- cv.lasso$lambda.min
+lasso.pred <- predict(cv.lasso, s = bestlam_lasso, newx = x[test, ])
+mse_lasso <- mean((lasso.pred - y.test)^2)
+
+# Number of non-zero coefficients for LASSO
+lasso.coef <- predict(cv.lasso, type = "coefficients", s = bestlam_lasso)
+nz_lasso <- sum(lasso.coef != 0) - 1 # subtracting intercept
+
+# --- 8. ELASTIC NET ---
+# We use alpha = 0.5 as a common balance, or tune alpha via a loop
+cv.enat <- cv.glmnet(x[train, ], y[train], alpha = 0.5)
+bestlam_enat <- cv.enat$lambda.min
+enat.pred <- predict(cv.enat, s = bestlam_enat, newx = x[test, ])
+mse_enat <- mean((enat.pred - y.test)^2)
+
+# Non-zero predictors for Elastic Net
+enat.coef <- predict(cv.enat, type = "coefficients", s = bestlam_enat)
+nz_enat_names <- row.names(enat.coef)[which(enat.coef != 0)]
+```
+
+**9. Comparison and Final Interpretation To compare these with Least Squares (OLS), we fit a linear model on the training data.**
+
+```{r}
+# OLS Model
+ols.mod <- lm(Salary ~ ., data = Hitters, subset = train)
+ols.pred <- predict(ols.mod, Hitters[test, ])
+mse_ols <- mean((ols.pred - y.test)^2)
+
+# Comparison Table
+results <- data.frame(
+  Method = c("Least Squares", "Ridge", "LASSO", "Elastic Net"),
+  MSE = c(mse_ols, mse_ridge, mse_lasso, mse_enat)
+)
+print(results)
+```
+
+
+*Interpretation:_*
+
+Predictive Accuracy: Usually, you will find that Ridge, LASSO, or Elastic Net outperform OLS (lower MSE). This happens because OLS often overfits the training data, leading to high variance. The regularization methods introduce a small amount of bias to significantly reduce that variance.
+
+Model Parsimony:LASSO is the most "interpretable" because it performs variable selection, reducing the number of predictors (as seen in step 7).
+
+Ridge keeps all predictors but shrinks them, which is better if most variables have small, distributed effects.
+
+Elastic Net is a hybrid, useful when there are groups of correlated variables.
+
+Baseball Context: Predicting a player's salary is complex. While these models reduce error significantly compared to a simple mean, a high MSE relative to the average salary suggests that "unobservables" (like player popularity, injury history, or contract negotiation specifics) still play a massive role beyond just career statistics.
+
+
+
