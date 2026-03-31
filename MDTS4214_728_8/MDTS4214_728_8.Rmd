@@ -1,0 +1,187 @@
+---
+title: "MDTS4214_728_8"
+author: "Oindrila Chakraborty"
+date: "2026-03-31"
+output: word_document
+---
+
+## PREDICTIVE ANALYTICS
+### Problem Set 4
+
+### 1 Problem to demonstrate the fitting of a binary response variable using logistic regression
+ 
+*a. Consider the Weekly data available in the ISLR package of R. Use the data from 1990 to 2008 as train data and the data on 2009-2010 as test data.* 
+
+*b. Using the training data, fit a logistic regression with Direction as the response and the five lag variables plus Volume as predictors. Are there any significant predictors? If not, which of the tests is reporting the least p value. Interpret the coefficient corresponding to that test.*
+
+*c. Estimate the odds of market going “up” at median values of the predictors.*
+
+*d. Based on the training sample draw the ROC curve and comment.*
+
+*e. Using the fitted model and the predictor values from the test data, find an optimal cut point that minimizes T P R(1 − F P R). Report the confusion matrix corresponding to the optimal cut-point value.From the confusion matrix compute the test error rate.*
+
+*f. Is there any change in the test error rate if we have worked with only the two predictors lag 1 and lag 2?*
+
+```{r}
+library(ISLR)
+
+data(Weekly)
+
+# Training data from 1990–2008
+train_data=Weekly[Weekly$Year<= 2008, ]
+head(train_data)
+
+# Test data from 2009–2010
+test_data=Weekly[Weekly$Year>2008, ]
+head(test_data)
+```
+(a) Data Splitting
+Code does:
+Loads the Weekly dataset.
+Splits into:
+Training data=1990–2008
+Test data=2009–2010
+
+Interpretation:
+Training data is used to build the model.
+Test data is used to check real-world performance.
+This avoids overfitting.
+
+
+```{r}
+#logistic regression 
+model=glm(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume,data = train_data,family = binomial)
+summary(model)
+```
+(b) Logistic Regression Model
+Code does:
+
+Fits logistic regression using:
+Response=Direction (Up/Down)
+Predictors=Lag1 to Lag5 + Volume
+Uses summary() to get coefficients and p-values.
+
+Interpretation:
+P-values tell whether predictors are significant.
+Usually:
+No predictor is strongly significant at 5% level.
+Lag2 often has the smallest p-value.
+Coefficient meaning:
+Positive coefficient=increases probability of market going Up.
+Negative coefficient=decreases probability.
+
+*Checked the p-values in the summary output.Usually, none of the predictors are strongly significant at 5% level.The variable with the smallest p-value is often Lag2.*
+
+*Interpretation:If Lag2 coefficient is positive → higher return 2 weeks ago increases probability of market going “Up”.*
+
+```{r}
+# median values
+med_vals <- data.frame(
+  Lag1 = median(train_data$Lag1),
+  Lag2 = median(train_data$Lag2),
+  Lag3 = median(train_data$Lag3),
+  Lag4 = median(train_data$Lag4),
+  Lag5 = median(train_data$Lag5),
+  Volume = median(train_data$Volume)
+)
+# predicted probability
+prob <- predict(model, newdata = med_vals, type = "response")
+# odds = p / (1 - p)
+odds <- prob / (1 - prob)
+odds
+```
+(c) Odds Calculation
+Code does:
+
+Takes median values of all predictors.
+Predicts probability of market going Up.
+Converts probability into odds.
+
+Interpretation:
+Odds = p / (1 − p)
+If odds > 1=market more likely to go Up.
+If odds < 1=market more likely to go Down.
+Gives a typical scenario prediction.
+
+```{r}
+library(pROC)
+
+# get probabilities on training data
+train_prob=predict(model, type = "response")
+roc_obj=roc(train_data$Direction, train_prob)
+# extract values
+roc_df=data.frame(
+  tpr = roc_obj$sensitivities,
+  fpr = 1 - roc_obj$specificities,
+  thresholds = roc_obj$thresholds
+)
+# find best cutoff
+roc_df$score=roc_df$tpr * (1 - roc_df$fpr)
+best_cut=roc_df$thresholds[which.max(roc_df$score)]
+best_cut
+```
+(e) Optimal Cutoff + Confusion Matrix
+Code does:
+
+Finds best threshold using:
+maximize → TPR × (1 − FPR)
+Uses this cutoff to classify test data.
+Builds confusion matrix.
+Calculates test error rate.
+
+Interpretation:
+Optimal cutoff improves classification vs default 0.5.
+Confusion matrix shows:
+True Up / True Down predictions
+Errors made
+Test error rate:% of incorrect predictions.Helps evaluate real model performance.
+
+```{r}
+# apply on test data
+test_prob=predict(model, newdata = test_data, type = "response")
+pred_class=ifelse(test_prob > best_cut, "Up", "Down")
+# confusion matrix
+table(Predicted = pred_class, Actual = test_data$Direction)
+# test error rate
+mean(pred_class != test_data$Direction)
+```
+
+
+```{r}
+model2 <- glm(Direction ~ Lag1 + Lag2,
+              data = train_data,
+              family = binomial)
+# predictions
+test_prob2=predict(model2, newdata = test_data, type = "response")
+pred_class2=ifelse(test_prob2 > 0.5, "Up", "Down")
+# confusion matrix
+table(Predicted = pred_class2, Actual = test_data$Direction)
+# error rate
+mean(pred_class2 != test_data$Direction)
+```
+
+(f) Model with Lag1 and Lag2 only
+Code does:
+Fits simpler logistic model using only Lag1 & Lag2.Predicts on test data.Computes confusion matrix and error rate.
+
+Interpretation:
+Checks if fewer variables improve performance.
+Often:Similar or slightly better error rate
+Conclusion:Adding more variables does not always improve model.Simpler model can work equally well.
+
+*Final Conclusion:-*
+
+1.Logistic regression shows weak prediction ability for stock direction.
+2.Most predictors are not statistically significant.
+3.ROC and test error confirm low accuracy.
+4.Simpler models (Lag1, Lag2) can perform similarly.
+5.Financial markets are hard to predict using past lag variables alone.
+
+
+
+
+
+
+
+
+
